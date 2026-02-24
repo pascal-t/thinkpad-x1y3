@@ -1,8 +1,12 @@
 # Thinkpad X1 Yoga Gen 3: Fix touchscreen after sleep
 
+This document describes my foolish and noobish jouney to figuring out how to fix the fact that the touchscreen of my Thinkpad was not working after waking it from sleep.
+
+[The Journey](#the-journey) was the fun (and sometimes frustrating part) but if you just want the solution you can skip to [The Destination](#the-destination)
+
 ---
 
-# The journey
+# The Journey
 
 ## Arch Wiki
 
@@ -178,72 +182,6 @@ Like I said, I wanted to keep Thunderbolt, so I could use a dock at my desk. Tha
 
 Speaking of power efficiency. The error does not appear when using the Sleep State "Windows" in the bios (instead of "Linux"). There also is a bug report for the Linux kernel: https://bugzilla.kernel.org/show_bug.cgi?id=203667 where someone claims the Windows mode should be good enough by now. However during my very scientific testing (looking how much battery % is used over time when the laptop is simply closed) I was able to determine that the Linux sleep mode is roughly 4 times as efficient as Windows.
 
-# The destination
-
-So that was a lot of talking. But what does it boil down to?
-
-## Install prerequisites:
-
-`sudo dnf install kernel-devel kernel-headers dkms`
-
-## Install acpi_call
-
-```bash
-# with wherever you keep your code projects as your current working directory
-git clone https://github.com/nix-community/acpi_call.git
-cd acpi_call
-sudo make dkms-add
-sudo make dkms-build
-sudo make dkms-install
-sudo make modprobe-install
-```
-
-If you did not disable Secure boot the last command will fail. In that case we just have to install dkms' signing key. The following command will ask for a password. This password will only be asked one more time by the BIOS, so make it as easy or secure as you like:
-
-`sudo mokutil --import /var/lib/dkms/mok.pub` (I think this will work but the `one-time-setup` did generate the public key in another format)
-
-Now reboot the system, follow the MOK management, it should look something like this: https://sourceware.org/systemtap/wiki/SecureBoot
-
-When your system is back up, repeat the `sudo make modprobe-install` in the acpi_call directory. It should work now.
-
-After that you should have a "file" `/proc/acpi/call`.
-
-## Automatically add the module
-
-Create a file `/etc/modules-load.d/70-acpi_call.conf`:
-
-```
-# Load acpi_call required for activate-touch-hack
-acpi_call
-```
-
-The filenames in `/etc/modules-load.d` should start with a 2 digit number from 60-90 according to `man modules-load.d`
-
-## Create service:
-
-Create the file `/etc/systemd/system/activate-touch-hack.service` (would require root permissions so use `sudo vim` or whatever ):
-
-```
-[Unit]
-Description=Touch wake Thinkpad X1 Yoga 3rd gen hack
-After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
-
-[Service]
-ExecStart=/bin/sh -c "echo '\\_SB.PCI0.LPCB.EC._Q2A'  > /proc/acpi/call"
-
-[Install]
-WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
-```
-
-And enable the service:
-```
-sudo systemctl daemon-reload
-sudo systemctl enable activate-touch-hack.service
-```
-
-Now when you close and open your Laptop it should work. I already managed to glitch it out when I closed and opened it too quickly maybe, but in that case you can run `sudo systemctl start activate-touch-hack.service` or simply close and open it (turn it off and on) again.
-During regular operation the workaround has been solid.
-
 # What next
 
 AFAIK a custom installed kernel module needs to be recompiled after a kernel update.
@@ -265,3 +203,79 @@ Anyways a `sudo modprobe acpi_call` later it worked again.
 ## A bit later
 
 The Kernel module is never loaded after reboot. Therefore I created a file `/etc/modules-load.d/70-acpi_call.conf` that adds it after boot.
+
+---
+
+# The destination
+
+So that was a lot of talking. But what does it boil down to?
+
+## Install prerequisites:
+
+`sudo dnf install kernel-devel kernel-headers dkms`
+
+## Install acpi_call
+
+First: check if you have secure boot enabled: `mokutil --sb-state`.
+If secure boot is enabled you first need to install DKMS' signing key.
+The following command will ask for a password.
+This password will only be asked one more time by the BIOS, so make it as easy or secure as you like (it can even be blank):
+
+`sudo mokutil --import /var/lib/dkms/mok.pub`
+
+When rebooting the system you will see a prompt to enroll the MOK. It will look like this: https://github.com/dkms-project/dkms#secure-boot
+
+After rebooting and enrolling the MOK, execute the following commands:
+
+```bash
+# with wherever you keep your code projects as your current working directory
+git clone https://github.com/nix-community/acpi_call.git
+cd acpi_call
+sudo make dkms-add
+sudo make dkms-build
+sudo make dkms-install
+sudo make modprobe-install
+```
+
+After that you should have a "file" `/proc/acpi/call`.
+
+## Automatically add the module
+
+On my system DKMS successfully recompiles the kernel module after a kernel update.
+However the module is not loaded automatically after a reboot.
+
+To fix that create a file `/etc/modules-load.d/70-acpi_call.conf`:
+
+```
+# Load acpi_call required for activate-touch-hack
+acpi_call
+```
+
+The filenames in `/etc/modules-load.d` should start with a 2 digit number from 60-90 according to `man modules-load.d`
+
+## Create service:
+
+Create the file `/etc/systemd/system/activate-touch-hack.service` (would require root permissions so use `sudo vim` or whatever):
+
+```
+[Unit]
+Description=Touch wake Thinkpad X1 Yoga 3rd gen hack
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+ExecStart=/bin/sh -c "echo '\\_SB.PCI0.LPCB.EC._Q2A'  > /proc/acpi/call"
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+```
+
+And enable the service:
+```
+sudo systemctl daemon-reload
+sudo systemctl enable activate-touch-hack.service
+```
+
+Now when you close and open your Laptop it should work.
+I rarely manage to glitch it out when I maybe closed and opened it too quickly,
+but in that case you can run `sudo systemctl start activate-touch-hack.service` or simply close and open it (turn it off and on) again.
+During regular operation the workaround has been solid.
