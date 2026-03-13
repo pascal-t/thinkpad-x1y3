@@ -180,7 +180,7 @@ So at least my previous journey was not for nothing.
 
 Like I said, I wanted to keep Thunderbolt, so I could use a dock at my desk. That way I'd have a dedicated device that I could use day to day with Linux, without having to dual boot my main PC. It's also more power efficient.
 
-Speaking of power efficiency. The error does not appear when using the Sleep State "Windows" in the bios (instead of "Linux"). There also is a bug report for the Linux kernel: https://bugzilla.kernel.org/show_bug.cgi?id=203667 where someone claims the Windows mode should be good enough by now. However during my very scientific testing (looking how much battery % is used over time when the laptop is simply closed) I was able to determine that the Linux sleep mode is roughly 4 times as efficient as Windows.
+Speaking of power efficiency. The error does not appear when using the Sleep State "Windows" in the bios (instead of "Linux"). There also is a bug report for the Linux kernel: https://bugzilla.kernel.org/show_bug.cgi?id=203667 where someone claims the Windows mode should be good enough by now. However during my very scientific testing (looking how much battery % is used over time when the laptop is simply closed) I was able to determine that the Linux sleep mode is roughly 4 times as efficient as Windows. (Sleep State "Windows" lost 22% in 11h vs. Sleep State "Linux" lost 17% in 34h)
 
 # What next
 
